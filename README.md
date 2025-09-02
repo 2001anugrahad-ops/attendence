@@ -138,104 +138,99 @@
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // --- Data Parsing Function ---
-        const parseClientData = (dataString) => {
+        // --- Data Parsing Function (Updated for CSV) ---
+        const parseClientData = (csvData) => {
             const clients = [];
-            const segments = dataString.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}.*?)(?=\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}|$)/gs);
+            const lines = csvData.trim().split('\r\n');
+            const headers = lines[0].split(',').map(header => header.trim().replace(/"/g, ''));
+            
+            // Correctly map headers to indices
+            const dateIndex = headers.indexOf('Date and time');
+            const nameIndex = headers.indexOf('Name');
+            const phoneIndex = headers.indexOf('number');
+            const email1Index = headers.indexOf('Email 1');
+            const email2Index = headers.indexOf('Email 2');
+            const sourceIndex = headers.indexOf('From where you know');
+            const genderIndex = headers.indexOf('gender');
 
-            if (!segments) return [];
+            lines.slice(1).forEach(line => {
+                const values = line.split(',').map(value => value.trim().replace(/"/g, ''));
+                if (values.length < 5) return; // Basic validation
 
-            segments.forEach(segment => {
-                const parts = segment.trim().split(/\s*(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2})\s*/).filter(p => p.trim() !== '');
-                if (parts.length < 2) return;
-
-                const [dateTime, ...rest] = parts;
-                const registrationTime = new Date(dateTime.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3')).toLocaleString();
-
-                const joinedRest = rest.join(' ').trim();
-                const regex = /(.*?@.*?\.com)(.*?)(\d{9,15})(.*?)(Yes|No)?(Male|Female)?/i;
-                const match = joinedRest.match(regex);
-
-                if (match) {
-                    const [, email, nameRaw, phone, sourceRaw, attendedStatus, gender] = match;
-                    const name = nameRaw.replace(email, '').trim().split(/\s*@/)[0].trim();
-                    const source = sourceRaw.trim().replace(/,$/, '');
-                    const attended = attendedStatus === 'Yes';
-
-                    clients.push({
-                        registrationTime,
-                        email,
-                        name: name,
-                        phone: phone,
-                        source: source,
-                        attended: attended,
-                        gender: gender || 'Not specified'
-                    });
-                }
+                clients.push({
+                    registrationTime: values[dateIndex] || 'Not specified',
+                    name: values[nameIndex] || 'Not specified',
+                    phone: values[phoneIndex] || 'Not specified',
+                    email: values[email1Index] || values[email2Index] || 'Not specified',
+                    source: values[sourceIndex] || 'Not specified',
+                    gender: values[genderIndex] || 'Not specified',
+                    attended: false // Default to not attended for new data
+                });
             });
             return clients;
         };
         
-        // Raw client data provided by the user
-        const initialClientData = `"16/08/2025 20:45:21 2001 anugrah@gmail.com Anugrah A 2001anugrah.ad@gmail.com 0561757348 Social media male"
-"16/08/2025 20:49:59 vijo.j9@gmail.com Vijo Joseph vijojoseph953@gmail.com 0566311338 Instagram male"
-"16/08/2025 21:00:36 lodytabosh13@gmail.com Lody nsreen_bhr@yahoo.com 0529757588 Instagram female"
-"16/08/2025 21:04:03 2001anugrah@gmail.com Anugrah 2001anugrah.ad@gmail.com 0561757348 male"
-"16/08/2025 21:27:23 edelizacervantes@gmail.com Edeliza Cervantes edelizacervantes@gmail.com 0526329892 Facebook female"
-"16/08/2025 22:09:01 maismaldali@gmail.com Mais maismaldali@gmail.com 0523176584 Social media female"
-"17/08/2025 11:45:05 sherineandagan@gmail.com Shiela Mae Andagan sherineandagan@gmail.com 0562108939 Instagram female"
-"17/08/2025 11:49:27 vocalista121989@gmail.com Jessica De Jesus vocalista121989@gmail.com 0567284743 Instagrram female"
-"17/08/2025 11:49:35 tinroseladasiano@gmail.com Hussein Siano tinroseladasiano@gmail.com 0553588332 Social Media female"
-"17/08/2025 11:52:38 yjovelin@gmail.com Jovelin Ybanez Yjovelin@gmail.com 0563251011 female"
-"17/08/2025 12:07:04 riveragracelyn14@gmail.com Gracelyn Rivera riveragracelyn14@gmail.com 0544612626 In social media female"
-"17/08/2025 12:07:10 roshassaf91@gmail.com Yara roshassaf91@gmail.com 0553725370 From what's App female"
-"17/08/2025 12:09:20 mhyjian231993@gmail.com Melanie Formentira canadalanzkielanzkie@gmail.com 0561542186 Social media, female"
-"16/08/2025 23:49:06 nuhman88@gmail.com Nuhman nuhman88@gmail.com 00971 527280074 Frends Male"
-"16/08/2025 23:50:51 vijricha31@gmail.com Richa vijricha31@gmail.com 0526711661 Instagram female"
-"17/08/2025 13:44:02 196954479@gmail.com Tatiana Sanaikina std198023@mail.ru 0501151454 Instagram Female"
-"17/08/2025 14:48:22 hadeelalkhader1972@gmail.com Hadeel Al Khader haltayer@adnoc.ae 0507323003 Friend Female"
-"18/08/2025 11:39:45 zaminshaz@gmail.com Zamin shaz zaminshaz@gmail.com 0527475903 Instagram Male"
-"19/08/2025 16:14:49 jamjamblanca@gmail.com Jamelah jamjamblanca@gmail.com 525574413 Social media Female"
-"19/08/2025 19:55:20 n.zaabi71@gmail.com Naila AlZaabi n.zaabi71@gmail.com 0502244094 Female"
-"20/08/2025 13:23:40 arishausa@gmail.com Arina Arishausa@gmail.com 509500275 Instal Female"
-"20/08/2025 13:47:26 mvadelina84@gmail.com Adelina mvadelina84@gmail.com 00971502350684 Social media Female"
-"20/08/2025 15:43:15 abudhabitiming@gmail.com Elena bee abudhabitiming@gmail.com +971523001057 Friend Female"
-"20/08/2025 15:45:35 abudhabitiming@gmail.com Assia Bens assiabens26@gmail.com 0526895064 Friend Female"
-"20/08/2025 16:11:47 abudhabitiming@gmail.com Adam Bensbaa abudhabitiming@gmail.com 0523001057 Friend Male"
-"21/08/2025 10:54:20 israa281095@gmail.com Israa Shaheen israa281095@gmail.com +971564634594 From Lodyana Female"
-"21/08/2025 10:59:35 anitha1484@gmail.com Anitha Jacob anitha1484@gmail.com 052 7997 007 A friend recommended Female"
-"23/08/2025 23:17:42 ranyak06@gmail.com ranya kulsoom ranyak06@gmail.com 0543877844 Sign Female"
-"24/08/2025 10:41:08 e.y.ignatyeva@gmail.com Ekaterina Ignatyeva e.y.ignatyeva@gmail.com 0547474577 Friends Female"
-"24/08/2025 15:17:51 alyona.durnieva@gmail.com Olena alyona.durnieva@gmail.com +971501274732 Invitation Female"
-"25/08/2025 00:18:49 rhonasable09@gmail.com Ronalyn Delos Reyes Rhonasable09@gmail.com 0508612093 Events Female"
-"25/08/2025 07:04:01 benish.umar@gmail.com Benish benish.umar@gmail.com 0585610135 Advertisement Female"
-"28/08/2025 14:54:53 maguinabil5@gmail.com Magi Nabil magi.nabil@rotana.com 0501158856 Female"
-"30/08/2025 19:18:45 lodytabosh13@gmail.com Lody lody.ana.spa@gmail.com 0529757588 Friends Female"
-"31/08/2025 15:43:06 heba.shujaa14@gmail.com Heba heba.shujaa14@gmail.com 0581120198 Female"
-"31/08/2025 16:06:19 layalzoor1@gmail.com Layal layalzoor1@gmail.com 0502829895 Tiktok Female"
-"31/08/2025 16:11:58 walaa755755@gmail.com Walaa lolo_755@hotmail.com 0503936302 Friend Female"
-"31/08/2025 17:07:29 nuhamourtada0@gmail.com Nuha Mourtada nuhamourtada0@gmail.com 0505813250 Female"
-"31/08/2025 17:09:06 nuhamourtada0@gmail.com Reem Ghazi hadikassem312@gmail.com 0501409952 Female"
-"31/08/2025 17:13:11 suhayla.alhebshi@gmail.com Suhayla Alhabshi suhayla.alhebshi@gmail.com 561121323 Friend Female"
-"31/08/2025 17:50:41 nataliehaddad1988@gmail.com Natali nataliehaddad1988@gmail.com 0507914489 Feabook Female"
-"31/08/2025 17:58:26 eman.baltak@gmail.com Eman Ibrahim eman.baltak@gmail.com 0556458377 Social media Female"
-"31/08/2025 19:03:17 walaa.basiouny.1979@gmail.com Walaa Mohamed walaa.mohamed1979@gmail.com 0501405464 From friends Female"
-"01/09/2025 00:37:57 nour.ksebati123@gmail.com Nour nour.ksebati223@gmail.com 504721980 By rasha jassar Female"
-"01/09/2025 11:11:41 taherbhagat.31190@gmail.com Taher taherbhagat 31190@gmail.com 529394656 Word of mouth Male"
-"01/09/2025 11:47:07 molyahmedmhz5@gmail.com Moly molyahmedmhz5@gmail.com 0565803577 My friend Female"
-"01/09/2025 12:10:04 rasha.ali051024@gmail.com Rasha hanounrasha@hotmail.com 0505818738 Social Media Female"
-"01/09/2025 12:40:25 marwa.draz90@gmail.com Marwa Marwa.draz90@gmail.com 0562683830 Watssapp group Male"
-"01/09/2025 12:42:32 lolo7555777@gmail.com Walaa Abdul azime lolo_755@hotmail.com 0503936302 Friend Female"
-"01/09/2025 13:08:23 hiba28614@gmail.com Khadija moukdim hiba-7777@hotmail.com 0567426244 Through a group on WhatsApp Female"
-"01/09/2025 13:31:54 memo.saleem1980@gmail.com Maha Al chaickh memo.saleem1980@gmail.com 0561092293 Friend Female"
-"01/09/2025 15:13:34 nurifhatima@gmail.com Nuri Fhatima Azam nurifhatima@gmail.com 504605122 I am Khalidiya Marketing Collea Female"
-"01/09/2025 16:01:13 malakmalak26768@gmail.com Malak jradi malakjardi@gmail.com 0505914536 WhatsApp group Female"
-"01/09/2025 17:08:44 ramisalom332@gmail.com Rama ramisalom332@gmail.com 0563762273 Instagram Female"
-"01/09/2025 17:29:40 devnandhanp@gmail.com Devnandha nр ddevnandhanp@gmail.com 8075957112 On Instagram Female"
-"01/09/2025 17:53:31 outaksoukaina@gmail.com Soukayna Outak outaksoukaina@gmail.com +971589297079 Company Female"
-"01/09/2025 23:21:11 rim_antoune@hotmail.com Rim Messadi rim_antoune@hotmail.com 0501215311 Female"
-"01/09/2025 23:22:09 lucinejarrah1@gmail.com Loucin jarah lucinejarrah1@hotmail.com 0504134280 By friends Female"
-"02/09/2025 03:45:15 yaraalsaeed2012@gmail.com Yasmeen Abusenenh yaraalsaeed2012@gmail.com 0506929336 From group Female"`;
+        // Raw client data from the CSV file provided by the user
+        const initialClientData = `"Date and time","Email 1","Name","Email 2","number","From where you know","gender"
+"16/08/2025 20:45:21","2001anugrah@gmail.com","Anugrah A","2001anugrah.ad@gmail.com","0561757348","Social media","male"
+"16/08/2025 20:49:59","vijo.j9@gmail.com","Vijo Joseph","vijojoseph953@gmail.com","0566311338","Instagram","male"
+"16/08/2025 21:00:36","lodytabosh13@gmail.com","Lody","nsreen_bhr@yahoo.com","0529757588","Instagram","female"
+"16/08/2025 21:04:03","2001anugrah@gmail.com","Anugrah","2001anugrah.ad@gmail.com","0561757348","","male"
+"16/08/2025 21:27:23","edelizacervantes@gmail.com","Edeliza Cervantes","edelizacervantes@gmail.com","0526329892","Facebook","female"
+"16/08/2025 22:09:01","maismaldali@gmail.com","Mais","maismaldali@gmail.com","0523176584","Social media","female"
+"17/08/2025 11:45:05","sherineandagan@gmail.com","Shiela Mae Andagan","sherineandagan@gmail.com","0562108939","Instagram","female"
+"17/08/2025 11:49:27","vocalista121989@gmail.com","Jessica De Jesus","vocalista121989@gmail.com","0567284743","Instagrram","female"
+"17/08/2025 11:49:35","tinroseladasiano@gmail.com","Hussein Siano","tinroseladasiano@gmail.com","0553588332","Social Media","female"
+"17/08/2025 11:52:38","yjovelin@gmail.com","Jovelin Ybanez","Yjovelin@gmail.com","0563251011","","female"
+"17/08/2025 12:07:04","riveragracelyn14@gmail.com","Gracelyn Rivera","riveragracelyn14@gmail.com","0544612626","In social media","female"
+"17/08/2025 12:07:10","roshassaf91@gmail.com","Yara","roshassaf91@gmail.com","0553725370","From what's App","female"
+"17/08/2025 12:09:20","mhyjian231993@gmail.com","Melanie Formentira","canadalanzkielanzkie@gmail.com","0561542186","Social media,","female"
+"16/08/2025 23:49:06","nuhman88@gmail.com","Nuhman","nuhman88@gmail.com","00971 527280074","Frends","Male"
+"16/08/2025 23:50:51","vijricha31@gmail.com","Richa","vijricha31@gmail.com","0526711661","Instagram","female"
+"17/08/2025 13:44:02","196954479@gmail.com","Tatiana Sanaikina","std198023@mail.ru","0501151454","Instagram","Female"
+"17/08/2025 14:48:22","hadeelalkhader1972@gmail.com","Hadeel Al Khader","haltayer@adnoc.ae","0507323003","Friend","Female"
+"18/08/2025 11:39:45","zaminshaz@gmail.com","Zamin shaz","zaminshaz@gmail.com","0527475903","Instagram","Male"
+"19/08/2025 16:14:49","jamjamblanca@gmail.com","Jamelah","jamjamblanca@gmail.com","525574413","Social media","Female"
+"19/08/2025 19:55:20","n.zaabi71@gmail.com","Naila AlZaabi","n.zaabi71@gmail.com","0502244094","","Female"
+"20/08/2025 13:23:40","arishausa@gmail.com","Arina","Arishausa@gmail.com","509500275","Instal","Female"
+"20/08/2025 13:47:26","mvadelina84@gmail.com","Adelina","mvadelina84@gmail.com","00971502350684","Social media","Female"
+"20/08/2025 15:43:15","abudhabitiming@gmail.com","Elena bee","abudhabitiming@gmail.com","+971523001057","Friend","Female"
+"20/08/2025 15:45:35","abudhabitiming@gmail.com","Assia Bens","assiabens26@gmail.com","0526895064","Friend","Female"
+"20/08/2025 16:11:47","abudhabitiming@gmail.com","Adam Bensbaa","abudhabitiming@gmail.com","0523001057","Friend","Male"
+"21/08/2025 10:54:20","israa281095@gmail.com","Israa Shaheen","israa281095@gmail.com","+971564634594","From Lodyana","Female"
+"21/08/2025 10:59:35","anitha1484@gmail.com","Anitha Jacob","anitha1484@gmail.com","052 7997 007","A friend recommended","Female"
+"23/08/2025 23:17:42","ranyak06@gmail.com","ranya kulsoom","ranyak06@gmail.com","0543877844","Sign","Female"
+"24/08/2025 10:41:08","e.y.ignatyeva@gmail.com","Ekaterina Ignatyeva","e.y.ignatyeva@gmail.com","0547474577","Friends","Female"
+"24/08/2025 15:17:51","alyona.durnieva@gmail.com","Olena","alyona.durnieva@gmail.com","+971501274732","Invitation","Female"
+"25/08/2025 00:18:49","rhonasable09@gmail.com","Ronalyn Delos Reyes","Rhonasable09@gmail.com","0508612093","Events","Female"
+"25/08/2025 07:04:01","benish.umar@gmail.com","Benish","benish.umar@gmail.com","0585610135","Advertisement","Female"
+"28/08/2025 14:54:53","maguinabil5@gmail.com","Magi Nabil","magi.nabil@rotana.com","0501158856","","Female"
+"30/08/2025 19:18:45","lodytabosh13@gmail.com","Lody","lody.ana.spa@gmail.com","0529757588","Friends","Female"
+"31/08/2025 15:43:06","heba.shujaa14@gmail.com","Heba","heba.shujaa14@gmail.com","0581120198","","Female"
+"31/08/2025 16:06:19","layalzoor1@gmail.com","Layal","layalzoor1@gmail.com","0502829895","Tiktok","Female"
+"31/08/2025 16:11:58","walaa755755@gmail.com","Walaa","lolo_755@hotmail.com","0503936302","Friend","Female"
+"31/08/2025 17:07:29","nuhamourtada0@gmail.com","Nuha Mourtada","nuhamourtada0@gmail.com","0505813250","","Female"
+"31/08/2025 17:09:06","nuhamourtada0@gmail.com","Reem Ghazi","hadikassem312@gmail.com","0501409952","","Female"
+"31/08/2025 17:13:11","suhayla.alhebshi@gmail.com","Suhayla Alhabshi","suhayla.alhebshi@gmail.com","561121323","Friend","Female"
+"31/08/2025 17:50:41","nataliehaddad1988@gmail.com","Natali","nataliehaddad1988@gmail.com","0507914489","Feabook","Female"
+"31/08/2025 17:58:26","eman.baltak@gmail.com","Eman Ibrahim","eman.baltak@gmail.com","0556458377","Social media","Female"
+"31/08/2025 19:03:17","walaa.basiouny.1979@gmail.com","Walaa Mohamed","walaa.mohamed1979@gmail.com","0501405464","From friends","Female"
+"01/09/2025 00:37:57","nour.ksebati123@gmail.com","Nour","nour.ksebati223@gmail.com","504721980","By rasha jassar","Female"
+"01/09/2025 11:11:41","taherbhagat.31190@gmail.com","Taher","taherbhagat 31190@gmail.com","529394656","Word of mouth","Male"
+"01/09/2025 11:47:07","molyahmedmhz5@gmail.com","Moly","molyahmedmhz5@gmail.com","0565803577","My friend","Female"
+"01/09/2025 12:10:04","rasha.ali051024@gmail.com","Rasha","hanounrasha@hotmail.com","0505818738","Social Media","Female"
+"01/09/2025 12:40:25","marwa.draz90@gmail.com","Marwa","Marwa.draz90@gmail.com","0562683830","Watssapp group","Male"
+"01/09/2025 12:42:32","lolo7555777@gmail.com","Walaa Abdul azime","lolo_755@hotmail.com","0503936302","Friend","Female"
+"01/09/2025 13:08:23","hiba28614@gmail.com","Khadija moukdim","hiba-7777@hotmail.com","0567426244","Through a group on WhatsApp","Female"
+"01/09/2025 13:31:54","memo.saleem1980@gmail.com","Maha Al chaickh","memo.saleem1980@gmail.com","0561092293","Friend","Female"
+"01/09/2025 15:13:34","nurifhatima@gmail.com","Nuri Fhatima Azam","nurifhatima@gmail.com","504605122","I am Khalidiya Marketing Collea","Female"
+"01/09/2025 16:01:13","malakmalak26768@gmail.com","Malak jradi","malakjardi@gmail.com","0505914536","WhatsApp group","Female"
+"01/09/2025 17:08:44","ramisalom332@gmail.com","Rama","ramisalom332@gmail.com","0563762273","Instagram","Female"
+"01/09/2025 17:29:40","devnandhanp@gmail.com","Devnandha nр","ddevnandhanp@gmail.com","8075957112","On Instagram","Female"
+"01/09/2025 17:53:31","outaksoukaina@gmail.com","Soukayna Outak","outaksoukaina@gmail.com","+971589297079","Company","Female"
+"01/09/2025 23:21:11","rim_antoune@hotmail.com","Rim Messadi","rim_antoune@hotmail.com","0501215311","","Female"
+"01/09/2025 23:22:09","lucinejarrah1@gmail.com","Loucin jarah","lucinejarrah1@hotmail.com","0504134280","By friends","Female"
+"02/09/2025 03:45:15","yaraalsaeed2012@gmail.com","Yasmeen Abusenenh","yaraalsaeed2012@gmail.com","0506929336","From group","Female"`;
 
         let db;
         let auth;
