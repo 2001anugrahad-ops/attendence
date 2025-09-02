@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LODYana Spa Event Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .container {
+            max-width: 90%;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        .modal-content {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .thanks-modal-content {
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4 md:p-8">
+
+    <!-- Main Container -->
+    <div class="container mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8 w-full">
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-gray-800 mb-6">LODYana Spa Event</h1>
+        <div class="flex flex-col md:flex-row items-center justify-between mb-6">
+            <h2 class="text-xl md:text-2xl font-semibold text-gray-700 mb-4 md:mb-0">Client Attendance</h2>
+            <div class="w-full md:w-1/2">
+                <input type="text" id="searchInput" placeholder="Search by name..." class="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+        </div>
+
+        <!-- Registered Clients and Attended Clients Sections -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Registered Clients Section -->
+            <div class="bg-gray-50 rounded-lg p-4 shadow-inner border border-gray-200">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">Registered Clients</h3>
+                <div id="registeredClientsList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                    <p class="text-center text-gray-500">Loading clients...</p>
+                </div>
+            </div>
+
+            <!-- Attended Clients Section -->
+            <div class="bg-gray-50 rounded-lg p-4 shadow-inner border border-gray-200">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">Attended Clients</h3>
+                <div id="attendedClientsList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
+                    <p class="text-center text-gray-500">Loading clients...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Confirmation Modal -->
+    <div id="confirmationModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Confirm Attendance</h3>
+            <div id="clientDetails" class="text-gray-700 space-y-2">
+                <!-- Client details will be injected here by JavaScript -->
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="cancelButton" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-full font-semibold transition-all hover:bg-gray-300">
+                    Cancel
+                </button>
+                <button id="confirmAttendButton" class="px-6 py-2 bg-green-500 text-white rounded-full font-semibold transition-all hover:bg-green-600">
+                    Yes, Attend
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Revert Attendance Confirmation Modal -->
+    <div id="revertConfirmationModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">Revert Attendance</h3>
+            <div class="text-gray-700 text-center mb-4">
+                <p>Are you sure you want to move <strong id="revertClientName"></strong> back to the registration list?</p>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button id="revertCancelButton" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-full font-semibold transition-all hover:bg-gray-300">
+                    No, Cancel
+                </button>
+                <button id="revertConfirmButton" class="px-6 py-2 bg-red-500 text-white rounded-full font-semibold transition-all hover:bg-red-600">
+                    Yes, Revert
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thank You Modal -->
+    <div id="thankYouModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center w-full max-w-md thanks-modal-content">
+            <h3 class="text-3xl font-bold text-green-600 mb-4">Thank You!</h3>
+            <p class="text-lg text-gray-700 mb-4">
+                Thank you for attending our event. Enjoy your time at LODYana Spa Wellness Center!
+            </p>
+            <p class="text-sm text-gray-500">
+                This window will close automatically.
+            </p>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, addDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        setLogLevel('debug'); // Enable Firestore debug logging
+
+        // Global variables for Firebase setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Data Parsing Function ---
+        const parseClientData = (dataString) => {
+            const clients = [];
+            const segments = dataString.match(/(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}.*?)(?=\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}|$)/gs);
+
+            if (!segments) return [];
+
+            segments.forEach(segment => {
+                const parts = segment.trim().split(/\s*(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2})\s*/).filter(p => p.trim() !== '');
+                if (parts.length < 2) return;
+
+                const [dateTime, ...rest] = parts;
+                const registrationTime = new Date(dateTime.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$2/$1/$3')).toLocaleString();
+
+                const joinedRest = rest.join(' ').trim();
+                const regex = /(.*?@.*?\.com)(.*?)(\d{9,15})(.*?)(Yes|No)?(Male|Female)?/i;
+                const match = joinedRest.match(regex);
+
+                if (match) {
+                    const [, email, nameRaw, phone, sourceRaw, attendedStatus, gender] = match;
+                    const name = nameRaw.replace(email, '').trim().split(/\s*@/)[0].trim();
+                    const source = sourceRaw.trim().replace(/,$/, '');
+                    const attended = attendedStatus === 'Yes';
+
+                    clients.push({
+                        registrationTime,
+                        email,
+                        name: name,
+                        phone: phone,
+                        source: source,
+                        attended: attended,
+                        gender: gender || 'Not specified'
+                    });
+                }
+            });
+            return clients;
+        };
+        
+        // Raw client data provided by the user
+        const initialClientData = `"16/08/2025 20:45:21 2001 anugrah@gmail.com Anugrah A 2001anugrah.ad@gmail.com 0561757348 Social media male"
+"16/08/2025 20:49:59 vijo.j9@gmail.com Vijo Joseph vijojoseph953@gmail.com 0566311338 Instagram male"
+"16/08/2025 21:00:36 lodytabosh13@gmail.com Lody nsreen_bhr@yahoo.com 0529757588 Instagram female"
+"16/08/2025 21:04:03 2001anugrah@gmail.com Anugrah 2001anugrah.ad@gmail.com 0561757348 male"
+"16/08/2025 21:27:23 edelizacervantes@gmail.com Edeliza Cervantes edelizacervantes@gmail.com 0526329892 Facebook female"
+"16/08/2025 22:09:01 maismaldali@gmail.com Mais maismaldali@gmail.com 0523176584 Social media female"
+"17/08/2025 11:45:05 sherineandagan@gmail.com Shiela Mae Andagan sherineandagan@gmail.com 0562108939 Instagram female"
+"17/08/2025 11:49:27 vocalista121989@gmail.com Jessica De Jesus vocalista121989@gmail.com 0567284743 Instagrram female"
+"17/08/2025 11:49:35 tinroseladasiano@gmail.com Hussein Siano tinroseladasiano@gmail.com 0553588332 Social Media female"
+"17/08/2025 11:52:38 yjovelin@gmail.com Jovelin Ybanez Yjovelin@gmail.com 0563251011 female"
+"17/08/2025 12:07:04 riveragracelyn14@gmail.com Gracelyn Rivera riveragracelyn14@gmail.com 0544612626 In social media female"
+"17/08/2025 12:07:10 roshassaf91@gmail.com Yara roshassaf91@gmail.com 0553725370 From what's App female"
+"17/08/2025 12:09:20 mhyjian231993@gmail.com Melanie Formentira canadalanzkielanzkie@gmail.com 0561542186 Social media, female"
+"16/08/2025 23:49:06 nuhman88@gmail.com Nuhman nuhman88@gmail.com 00971 527280074 Frends Male"
+"16/08/2025 23:50:51 vijricha31@gmail.com Richa vijricha31@gmail.com 0526711661 Instagram female"
+"17/08/2025 13:44:02 196954479@gmail.com Tatiana Sanaikina std198023@mail.ru 0501151454 Instagram Female"
+"17/08/2025 14:48:22 hadeelalkhader1972@gmail.com Hadeel Al Khader haltayer@adnoc.ae 0507323003 Friend Female"
+"18/08/2025 11:39:45 zaminshaz@gmail.com Zamin shaz zaminshaz@gmail.com 0527475903 Instagram Male"
+"19/08/2025 16:14:49 jamjamblanca@gmail.com Jamelah jamjamblanca@gmail.com 525574413 Social media Female"
+"19/08/2025 19:55:20 n.zaabi71@gmail.com Naila AlZaabi n.zaabi71@gmail.com 0502244094 Female"
+"20/08/2025 13:23:40 arishausa@gmail.com Arina Arishausa@gmail.com 509500275 Instal Female"
+"20/08/2025 13:47:26 mvadelina84@gmail.com Adelina mvadelina84@gmail.com 00971502350684 Social media Female"
+"20/08/2025 15:43:15 abudhabitiming@gmail.com Elena bee abudhabitiming@gmail.com +971523001057 Friend Female"
+"20/08/2025 15:45:35 abudhabitiming@gmail.com Assia Bens assiabens26@gmail.com 0526895064 Friend Female"
+"20/08/2025 16:11:47 abudhabitiming@gmail.com Adam Bensbaa abudhabitiming@gmail.com 0523001057 Friend Male"
+"21/08/2025 10:54:20 israa281095@gmail.com Israa Shaheen israa281095@gmail.com +971564634594 From Lodyana Female"
+"21/08/2025 10:59:35 anitha1484@gmail.com Anitha Jacob anitha1484@gmail.com 052 7997 007 A friend recommended Female"
+"23/08/2025 23:17:42 ranyak06@gmail.com ranya kulsoom ranyak06@gmail.com 0543877844 Sign Female"
+"24/08/2025 10:41:08 e.y.ignatyeva@gmail.com Ekaterina Ignatyeva e.y.ignatyeva@gmail.com 0547474577 Friends Female"
+"24/08/2025 15:17:51 alyona.durnieva@gmail.com Olena alyona.durnieva@gmail.com +971501274732 Invitation Female"
+"25/08/2025 00:18:49 rhonasable09@gmail.com Ronalyn Delos Reyes Rhonasable09@gmail.com 0508612093 Events Female"
+"25/08/2025 07:04:01 benish.umar@gmail.com Benish benish.umar@gmail.com 0585610135 Advertisement Female"
+"28/08/2025 14:54:53 maguinabil5@gmail.com Magi Nabil magi.nabil@rotana.com 0501158856 Female"
+"30/08/2025 19:18:45 lodytabosh13@gmail.com Lody lody.ana.spa@gmail.com 0529757588 Friends Female"
+"31/08/2025 15:43:06 heba.shujaa14@gmail.com Heba heba.shujaa14@gmail.com 0581120198 Female"
+"31/08/2025 16:06:19 layalzoor1@gmail.com Layal layalzoor1@gmail.com 0502829895 Tiktok Female"
+"31/08/2025 16:11:58 walaa755755@gmail.com Walaa lolo_755@hotmail.com 0503936302 Friend Female"
+"31/08/2025 17:07:29 nuhamourtada0@gmail.com Nuha Mourtada nuhamourtada0@gmail.com 0505813250 Female"
+"31/08/2025 17:09:06 nuhamourtada0@gmail.com Reem Ghazi hadikassem312@gmail.com 0501409952 Female"
+"31/08/2025 17:13:11 suhayla.alhebshi@gmail.com Suhayla Alhabshi suhayla.alhebshi@gmail.com 561121323 Friend Female"
+"31/08/2025 17:50:41 nataliehaddad1988@gmail.com Natali nataliehaddad1988@gmail.com 0507914489 Feabook Female"
+"31/08/2025 17:58:26 eman.baltak@gmail.com Eman Ibrahim eman.baltak@gmail.com 0556458377 Social media Female"
+"31/08/2025 19:03:17 walaa.basiouny.1979@gmail.com Walaa Mohamed walaa.mohamed1979@gmail.com 0501405464 From friends Female"
+"01/09/2025 00:37:57 nour.ksebati123@gmail.com Nour nour.ksebati223@gmail.com 504721980 By rasha jassar Female"
+"01/09/2025 11:11:41 taherbhagat.31190@gmail.com Taher taherbhagat 31190@gmail.com 529394656 Word of mouth Male"
+"01/09/2025 11:47:07 molyahmedmhz5@gmail.com Moly molyahmedmhz5@gmail.com 0565803577 My friend Female"
+"01/09/2025 12:10:04 rasha.ali051024@gmail.com Rasha hanounrasha@hotmail.com 0505818738 Social Media Female"
+"01/09/2025 12:40:25 marwa.draz90@gmail.com Marwa Marwa.draz90@gmail.com 0562683830 Watssapp group Male"
+"01/09/2025 12:42:32 lolo7555777@gmail.com Walaa Abdul azime lolo_755@hotmail.com 0503936302 Friend Female"
+"01/09/2025 13:08:23 hiba28614@gmail.com Khadija moukdim hiba-7777@hotmail.com 0567426244 Through a group on WhatsApp Female"
+"01/09/2025 13:31:54 memo.saleem1980@gmail.com Maha Al chaickh memo.saleem1980@gmail.com 0561092293 Friend Female"
+"01/09/2025 15:13:34 nurifhatima@gmail.com Nuri Fhatima Azam nurifhatima@gmail.com 504605122 I am Khalidiya Marketing Collea Female"
+"01/09/2025 16:01:13 malakmalak26768@gmail.com Malak jradi malakjardi@gmail.com 0505914536 WhatsApp group Female"
+"01/09/2025 17:08:44 ramisalom332@gmail.com Rama ramisalom332@gmail.com 0563762273 Instagram Female"
+"01/09/2025 17:29:40 devnandhanp@gmail.com Devnandha nр ddevnandhanp@gmail.com 8075957112 On Instagram Female"
+"01/09/2025 17:53:31 outaksoukaina@gmail.com Soukayna Outak outaksoukaina@gmail.com +971589297079 Company Female"
+"01/09/2025 23:21:11 rim_antoune@hotmail.com Rim Messadi rim_antoune@hotmail.com 0501215311 Female"
+"01/09/2025 23:22:09 lucinejarrah1@gmail.com Loucin jarah lucinejarrah1@hotmail.com 0504134280 By friends Female"
+"02/09/2025 03:45:15 yaraalsaeed2012@gmail.com Yasmeen Abusenenh yaraalsaeed2012@gmail.com 0506929336 From group Female"`;
+
+        let db;
+        let auth;
+        let userId;
+        let currentClients = [];
+        let filterText = '';
+        let selectedClientId = null;
+
+        // --- Initialize Firebase and Authentication ---
+        const initializeFirebase = async () => {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config is missing. Cannot initialize Firestore.");
+                return;
+            }
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                await setPersistence(auth, browserSessionPersistence);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                    console.log('Signed in with custom token.');
+                } else {
+                    await signInAnonymously(auth);
+                    console.log('Signed in anonymously.');
+                }
+
+                userId = auth.currentUser.uid;
+                await checkAndPopulateInitialData();
+                startListeningToClients();
+
+            } catch (error) {
+                console.error("Error initializing Firebase:", error);
+                document.getElementById('registeredClientsList').innerHTML = `<p class="text-red-500 text-center">Failed to load data. Please check the console for errors.</p>`;
+            }
+        };
+
+        // --- Check and Populate Initial Data ---
+        const checkAndPopulateInitialData = async () => {
+            const clientCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clients`);
+            const snapshot = await getDoc(doc(clientCollectionRef, 'initial_check'));
+            if (!snapshot.exists()) {
+                console.log("Database is empty. Populating with initial data...");
+                const clientsData = parseClientData(initialClientData);
+                for (const client of clientsData) {
+                    await addDoc(clientCollectionRef, client);
+                }
+                await setDoc(doc(clientCollectionRef, 'initial_check'), { populated: true });
+            }
+        };
+
+        // --- Real-time Listener for Clients ---
+        const startListeningToClients = () => {
+            const clientCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/clients`);
+            onSnapshot(clientCollectionRef, (querySnapshot) => {
+                const clients = [];
+                querySnapshot.forEach((doc) => {
+                    clients.push({ id: doc.id, ...doc.data() });
+                });
+                currentClients = clients;
+                renderClients();
+            }, (error) => {
+                console.error("Error listening to Firestore updates:", error);
+            });
+        };
+
+        // --- UI Rendering Functions ---
+        const renderClients = () => {
+            const registeredList = document.getElementById('registeredClientsList');
+            const attendedList = document.getElementById('attendedClientsList');
+            registeredList.innerHTML = '';
+            attendedList.innerHTML = '';
+
+            const filteredClients = currentClients.filter(client =>
+                client.name && client.name.toLowerCase().includes(filterText.toLowerCase())
+            );
+
+            if (filteredClients.length === 0) {
+                registeredList.innerHTML = `<p class="text-center text-gray-500">No matching clients found.</p>`;
+                attendedList.innerHTML = `<p class="text-center text-gray-500">No matching clients found.</p>`;
+                return;
+            }
+
+            const registered = filteredClients.filter(client => !client.attended);
+            const attended = filteredClients.filter(client => client.attended);
+
+            if (registered.length > 0) {
+                registered.forEach(client => registeredList.appendChild(createClientElement(client, 'registered')));
+            } else {
+                registeredList.innerHTML = `<p class="text-center text-gray-500">All clients have attended!</p>`;
+            }
+
+            if (attended.length > 0) {
+                attended.forEach(client => attendedList.appendChild(createClientElement(client, 'attended')));
+            } else {
+                attendedList.innerHTML = `<p class="text-center text-gray-500">No clients have attended yet.</p>`;
+            }
+        };
+
+        const createClientElement = (client, listType) => {
+            const clientDiv = document.createElement('div');
+            clientDiv.className = `flex items-center justify-between p-3 rounded-lg shadow-sm ${listType === 'registered' ? 'bg-white hover:bg-gray-50 transition-colors' : 'bg-green-100'}`;
+            clientDiv.innerHTML = `
+                <div>
+                    <!-- Displaying only the name and phone number for the list view -->
+                    <p class="font-bold text-gray-800">${client.name}</p>
+                    <p class="text-sm text-gray-500">${client.phone}</p>
+                </div>
+                ${listType === 'registered' ? `
+                <button data-id="${client.id}" class="confirm-button flex-shrink-0 w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                ` : `
+                <button data-id="${client.id}" class="revert-button flex-shrink-0 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+                `}
+            `;
+            return clientDiv;
+        };
+
+        // --- Event Listeners and Modal Logic ---
+        const confirmationModal = document.getElementById('confirmationModal');
+        const revertConfirmationModal = document.getElementById('revertConfirmationModal');
+        const thankYouModal = document.getElementById('thankYouModal');
+        const searchInput = document.getElementById('searchInput');
+        const registeredClientsList = document.getElementById('registeredClientsList');
+        const attendedClientsList = document.getElementById('attendedClientsList');
+        const confirmAttendButton = document.getElementById('confirmAttendButton');
+        const cancelButton = document.getElementById('cancelButton');
+        const revertConfirmButton = document.getElementById('revertConfirmButton');
+        const revertCancelButton = document.getElementById('revertCancelButton');
+        const revertClientName = document.getElementById('revertClientName');
+
+
+        searchInput.addEventListener('input', (e) => {
+            filterText = e.target.value;
+            renderClients();
+        });
+
+        registeredClientsList.addEventListener('click', (e) => {
+            const button = e.target.closest('.confirm-button');
+            if (button) {
+                const clientId = button.dataset.id;
+                const client = currentClients.find(c => c.id === clientId);
+                if (client) {
+                    showAttendModal(client);
+                    selectedClientId = clientId;
+                }
+            }
+        });
+
+        attendedClientsList.addEventListener('click', (e) => {
+            const button = e.target.closest('.revert-button');
+            if (button) {
+                const clientId = button.dataset.id;
+                const client = currentClients.find(c => c.id === clientId);
+                if (client) {
+                    showRevertModal(client);
+                    selectedClientId = clientId;
+                }
+            }
+        });
+
+        const showAttendModal = (client) => {
+            const detailsDiv = document.getElementById('clientDetails');
+            detailsDiv.innerHTML = `
+                <p><strong>Name:</strong> ${client.name}</p>
+                <p><strong>Email:</strong> ${client.email}</p>
+                <p><strong>Phone:</strong> ${client.phone}</p>
+                <p><strong>Registration Time:</strong> ${client.registrationTime}</p>
+                <p><strong>Source:</strong> ${client.source}</p>
+                <p><strong>Gender:</strong> ${client.gender}</p>
+            `;
+            confirmationModal.classList.remove('hidden');
+        };
+
+        const hideAttendModal = () => {
+            confirmationModal.classList.add('hidden');
+        };
+
+        const showRevertModal = (client) => {
+            revertClientName.textContent = client.name;
+            revertConfirmationModal.classList.remove('hidden');
+        };
+
+        const hideRevertModal = () => {
+            revertConfirmationModal.classList.add('hidden');
+        };
+
+        const showThankYouModal = () => {
+            thankYouModal.classList.remove('hidden');
+            setTimeout(() => {
+                thankYouModal.classList.add('hidden');
+            }, 5000); // 5 seconds
+        };
+
+        confirmAttendButton.addEventListener('click', async () => {
+            if (selectedClientId && db && userId) {
+                try {
+                    const clientDocRef = doc(db, `artifacts/${appId}/users/${userId}/clients`, selectedClientId);
+                    await updateDoc(clientDocRef, { attended: true });
+                    hideAttendModal();
+                    showThankYouModal();
+                } catch (error) {
+                    console.error("Error updating document:", error);
+                    hideAttendModal();
+                }
+            }
+        });
+
+        revertConfirmButton.addEventListener('click', async () => {
+            if (selectedClientId && db && userId) {
+                try {
+                    const clientDocRef = doc(db, `artifacts/${appId}/users/${userId}/clients`, selectedClientId);
+                    await updateDoc(clientDocRef, { attended: false });
+                    hideRevertModal();
+                } catch (error) {
+                    console.error("Error reverting document:", error);
+                    hideRevertModal();
+                }
+            }
+        });
+
+        cancelButton.addEventListener('click', hideAttendModal);
+        revertCancelButton.addEventListener('click', hideRevertModal);
+
+        // Run the initialization
+        window.addEventListener('DOMContentLoaded', initializeFirebase);
+    </script>
+</body>
+</html>
